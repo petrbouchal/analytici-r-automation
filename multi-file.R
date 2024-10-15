@@ -4,6 +4,22 @@ library(readxl)
 library(writexl)
 library(readr)
 library(tidyr)
+library(fs)
+
+# Pomůcky pro práci se soubory a složkami
+
+fs::path_ext_remove("soubor.csv.txt")
+fs::path_ext_remove("soubor.csv")
+fs::path_ext("soubor.csv.txt")
+fs::path_ext("soubor.csv")
+
+tools::file_path_sans_ext("soubor.csv.txt")
+tools::file_path_sans_ext("soubor.csv")
+tools::file_path_sans_ext("slozka/soubor.csv.txt")
+
+dirname("slozka/soubor.xlsx")
+
+# Download více souborů ---------------------------------------------------
 
 datumy <- c("29-09-2024", "06-10-2024")
 urls <- glue("https://www.mvcr.cz/soubor/statistika-ukr-{datumy}-xls.aspx")
@@ -27,6 +43,9 @@ fls_df <- map2_df(urls, fls, function(x, y) {
 dta_df <- fls_df |>
   mutate(dta = map(file, read_excel))
 
+
+# Načtení více souborů ----------------------------------------------------
+
 dta_df2 <- map_df(fls_df$file, read_excel)
 dta_df2
 dta_df2a <- map_df(fls_df$file, read_excel, .id = "file")
@@ -37,6 +56,11 @@ dta_df3 <- map2_df(fls_df$file, fls_df$url,
 
 dta_df3
 dta_df3 |> count(url, path, file)
+
+
+# Export po částech ------------------------------------------------
+
+## Excel do listů ---------------------------------------------------------
 
 dir.create("kraje_export")
 
@@ -49,6 +73,8 @@ dta_df3 |>
     return(file)
   })
 
+## CSV po částech ----------------------------------------------------------
+
 kraje_csv <- dta_df3 |>
   group_split(kraj, .keep = TRUE) |>
   map_chr(\(df) {
@@ -57,6 +83,8 @@ kraje_csv <- dta_df3 |>
     write_csv(df |> select(-kraj), file)
     return(file)
   })
+
+# Načíst více CSV
 
 all_from_csv <- read_csv(kraje_csv, id = "zdroj")
 all_from_csv2 <- all_from_csv |>
@@ -71,16 +99,20 @@ all_from_csv3 <- read_csv(csv_files, id = "zdroj")
 all_from_csv3
 
 dta_kraje_list <- group_split(dta_df3, kraj, .keep = TRUE)
-
 write_xlsx(dta_kraje_list, "kraje.xlsx")
 
-dta_from_excel <- map_dfr(excel_sheets("kraje.xlsx"), \(x) read_excel("kraje.xlsx", x), .id = "source_sheet")
+## Načíst všechny listy z Excelu
+
+dta_from_excel <- map_dfr(excel_sheets("kraje.xlsx"),
+                          \(x) read_excel("kraje.xlsx", x), .id = "source_sheet")
 
 dta_from_excel |>
   count(source_sheet)
 
 listy <- excel_sheets("kraje.xlsx")
 names(listy) <- listy
+
+### I s názvy listů do sloupce
 
 dta_from_excel2 <- imap_dfr(excel_sheets("kraje.xlsx"),
                            \(x, y) read_excel("kraje.xlsx", sheet = x) |>
@@ -89,10 +121,15 @@ dta_from_excel2 <- imap_dfr(excel_sheets("kraje.xlsx"),
 dta_from_excel2 |>
   count(source_sheet)
 
-names(dta_kraje_list) <- map_chr(dta_kraje_list, \(x) x$kraj[[1]])
+## Zapsat do excelu i s názvy listů
+
+names(dta_kraje_list) <- map_chr(dta_kraje_list,
+                                 \(x) x$kraj[[1]])
 names(dta_kraje_list)
 
 write_xlsx(dta_kraje_list, "kraje2.xlsx")
+
+## Zpětně načíst
 
 dta_from_excel3 <- imap_dfr(excel_sheets("kraje2.xlsx"),
                             \(x, y) read_excel("kraje2.xlsx", sheet = x) |>
@@ -100,10 +137,3 @@ dta_from_excel3 <- imap_dfr(excel_sheets("kraje2.xlsx"),
 
 dta_from_excel3 |>
   count(source_sheet)
-
-fs::path_ext_remove("file.csv.txt")
-fs::path_ext("file.csv.txt")
-
-tools::file_path_sans_ext("file.csv.txt")
-
-dirname("slozka/soubor.xlsx")
