@@ -27,16 +27,16 @@ mv_dir <- file.path("data-raw", "mvcr")
 fls <- file.path(mv_dir, paste0("mv_ukr_", datumy, ".xls"))
 fs::dir_create(mv_dir)
 
-map2(urls, fls, download.file)
+map2(.x = urls, .y = fls, .f = \(x, y) download.file(x, y, mode = "wb"))
 
-fls_chr <- map2_chr(urls, fls, function(x, y) {
+fls_chr <- map2_chr(urls, fls, \(x, y) {
   download.file(x, y)
   return(y)
 })
 
-fls_df <- map2_df(urls, fls, function(x, y) {
+fls_df <- map2_dfr(urls, fls, \(x, y) {
   print(y)
-  download.file(url = x, destfile = y)
+  download.file(url = x, destfile = y, mode = "wb")
   tibble(url = x, file = y)
 })
 
@@ -51,7 +51,8 @@ dta_df2
 dta_df2a <- map_df(fls_df$file, read_excel, .id = "file")
 dta_df2a
 dta_df3 <- map2_df(fls_df$file, fls_df$url,
-                   \(path, url) read_excel(path) |> mutate(url = url, path = path),
+                   \(path, url) read_excel(path) |>
+                     mutate(url = url, path = path),
                    .id = "file")
 
 dta_df3
@@ -64,14 +65,16 @@ dta_df3 |> count(url, path, file)
 
 dir.create("kraje_export")
 
-dta_df3 |>
+export_kraj_do_excelu <- function(df) {
+  kraj <- unique(df$kraj)
+  file <- file.path("kraje_export", paste0(kraj, ".xlsx"))
+  write_xlsx(df |> select(-kraj), file)
+  return(file)
+}
+
+kraje_excely <- dta_df3 |>
   group_split(kraj, .keep = TRUE) |>
-  map_chr(\(df) {
-    kraj <- unique(df$kraj)
-    file <- file.path("kraje_export", paste0(kraj, ".xlsx"))
-    write_xlsx(df |> select(-kraj), file)
-    return(file)
-  })
+  map_chr(export_kraj_do_excelu)
 
 ## CSV po částech ----------------------------------------------------------
 
@@ -85,6 +88,14 @@ kraje_csv <- dta_df3 |>
   })
 
 # Načíst více CSV
+
+csv_paths <- list.files("kraje_export", pattern = "*.csv", full.names = TRUE)
+csv_list <- map(csv_paths, read_csv)
+names(csv_list) <- csv_paths
+csv_list[[1]]
+
+csv_list$`kraje_export/Jihomoravský kraj.csv`
+csv_list[["kraje_export/Jihomoravský kraj.csv"]]
 
 all_from_csv <- read_csv(kraje_csv, id = "zdroj")
 all_from_csv2 <- all_from_csv |>
@@ -100,6 +111,8 @@ all_from_csv3
 
 dta_kraje_list <- group_split(dta_df3, kraj, .keep = TRUE)
 write_xlsx(dta_kraje_list, "kraje.xlsx")
+
+write_xlsx(x = list(iris = iris, mtcars = mtcars), "test.xlsx")
 
 ## Načíst všechny listy z Excelu
 

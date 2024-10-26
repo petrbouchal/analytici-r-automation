@@ -15,7 +15,7 @@ df <- tibble(
   measure_b_round = c("4", "4", "4", "3"),
   age = c(33, 42, 17, 23),
   id = c("001", "002", "003", "004"),
-  group = factor("Group1", "Group1", "Group2", "Group2")
+  group = c("Group1", "Group1", "Group2", "Group2")
 )
 
 ## Tribble -------------------------------------------------------------------
@@ -32,22 +32,28 @@ df <- tribble(
 # Vybrat sloupce podle textu v názvu --------------------------------------
 
 df |>
-  select(id, matches("_a_"))
+  select(-ends_with("round"))
 
 df |>
-  select(id, matches("_a_"), where(is.factor))
+  select(where(is.numeric))
 
 
 # mutate() přes víc sloupců -------------------------------------------------
 
 df |>
-  mutate(across(starts_with("measure"), as.integer))
+  mutate(across(starts_with("measure"), as.numeric))
+
+pokriv_to <- function(x) {
+  as.integer(x) * 100
+}
 
 df |>
-  mutate(across(starts_with("measure"), \(x) as.integer(x) |> floor()))
+  mutate(measure_x10 = measure_a * 10)
 
 df |>
-  mutate(across(matches("measure_[a|b]$"), \(x) as.integer(x) |> floor())) |>
+  mutate(across(starts_with("measure"), pokriv_to))
+
+df |>
   mutate(across(starts_with("name"), str_to_sentence))
 
 
@@ -58,9 +64,9 @@ df |>
   mutate(across(starts_with("measure"), as.numeric),
          across(where(is.numeric), floor))
 
-## Více fukncí utnitř across() -----------------------------------------------
+## Více funkcí utnitř across() -----------------------------------------------
 
-df |>
+df2 <- df |>
   select(-ends_with("round")) |>
   mutate(across(starts_with("measure"), as.numeric)) |>
   mutate(across(where(is.numeric), list(flr = floor,
@@ -69,8 +75,8 @@ df |>
 df |>
   select(-ends_with("round")) |>
   mutate(across(starts_with("measure"), as.numeric)) |>
-  summarise(across(where(is.numeric), list(avg = mean,
-                                           wtf = \(x) mean(x ^ 3) / 12)))
+  mutate(across(where(is.numeric), list("mean" = mean,
+                                           "median" = median)))
 
 ## Výběr podle datového typu sloupce -----------------------------------------
 
@@ -86,5 +92,5 @@ df |>
   select(-ends_with("round")) |>
   mutate(across(starts_with("measure"), as.numeric)) |>
   summarise(across(where(is.numeric), list(avg = mean,
-                                        mn = \(x) mean(x ^ 3) / 12)),
+                                           mn = \(x) mean(x ^ 3) / 12)),
             .by = group)

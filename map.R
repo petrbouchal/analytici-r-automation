@@ -3,6 +3,7 @@ library(purrr)
 # For loop ----------------------------------------------------------------
 
 lst <- 1:4
+lst <- list(1, 2, 3, 4)
 for(i in lst) {
   print(i)
   Sys.sleep(i)
@@ -39,7 +40,7 @@ for_vysledek
 
 ## Totéž pomocí purrr --------------------------------------------------------
 
-spani_vysledek <- map(lst, sleep_and_print)
+spani_vysledek <- map_int(1:3, sleep_and_print)
 spani_vysledek
 
 walk(lst, Sys.sleep)
